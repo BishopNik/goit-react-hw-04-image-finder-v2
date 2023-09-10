@@ -1,6 +1,6 @@
 /** @format */
 
-import { Component } from 'react';
+import { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { BsFillCaretDownSquareFill } from 'react-icons/bs';
 import { Notify } from 'notiflix';
@@ -8,145 +8,147 @@ import { fetchImage } from '../service/fetch_api';
 import ImageItem from '../galleryitem';
 import Button from '../button';
 import Loader from '../loader';
-import { ErrorComponent } from '../service/error';
+import ErrorComponent from '../service/error';
 import './style.css';
 
-class ImageGallery extends Component {
-	state = {
-		searchItem: '',
-		page: 1,
-		perPage: 12,
-		foundImages: [],
-		countFoundItem: 0,
-		countPage: 0,
-		isLoading: false,
-		statusComponent: null,
-		error: null,
-	};
+function ImageGallery({ searchItem, isNewSearch, onClickBigImage, onSearchCompeted }) {
+	const [page, setPage] = useState(null);
+	const [perPage] = useState(20);
+	const [foundImages, setFoundImages] = useState([]);
+	const [countFoundItem, setCountFoundItem] = useState(0);
+	const [countPage, setCountPage] = useState(0);
+	const [statusComponent, setStatusComponent] = useState(null);
+	const [error, setError] = useState(null);
 
-	static propTypes = {
-		searchItem: PropTypes.string.isRequired,
-		isNewSearch: PropTypes.bool.isRequired,
-		onClickBigImage: PropTypes.func.isRequired,
-		onSearchCompeted: PropTypes.func.isRequired,
-	};
+	useEffect(() => {
+		if (!searchItem || !isNewSearch) {
+			return;
+		}
+		setPage(0);
+		setFoundImages([]);
+		setCountFoundItem(0);
+		setCountPage(0);
+		setError(null);
 
-	componentDidUpdate = (prevProps, prevState) => {
-		const { perPage, countPage, page } = this.state;
-		const { searchItem, isNewSearch, onSearchCompeted } = this.props;
-		if (
-			prevProps.searchItem !== searchItem ||
-			(prevProps.isNewSearch !== isNewSearch && isNewSearch === true) ||
-			(prevState.page !== page && page !== 1)
-		) {
-			this.setState({
-				statusComponent: 'pending',
-				searchItem,
-				page: isNewSearch ? 1 : page,
-				foundImages: isNewSearch ? [] : this.state.foundImages,
-				countPage: isNewSearch ? 0 : this.state.countPage,
-			});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [isNewSearch]);
 
-			fetchImage({
-				searchItem,
-				page: isNewSearch ? 1 : page,
-				perPage,
+	useEffect(() => {
+		if (page === 1) {
+			return;
+		}
+		scrollWindow();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [foundImages]);
+
+	useEffect(() => {
+		if (isNewSearch) {
+			setPage(1);
+		}
+		if (!searchItem || !page) {
+			return;
+		}
+
+		setStatusComponent('pending');
+
+		fetchImage({
+			searchItem,
+			page: isNewSearch ? 1 : page,
+			perPage,
+		})
+			.then(({ hits, totalHits }) => {
+				const images = [];
+				hits.forEach(({ id, webformatURL, largeImageURL, tags }) => {
+					if (id && webformatURL && largeImageURL && tags) {
+						images.push({ id, webformatURL, largeImageURL, tags });
+					}
+				});
+
+				setFoundImages(isNewSearch ? [...images] : [...foundImages, ...images]);
+				setCountFoundItem(totalHits);
+				setCountPage(isNewSearch ? Math.ceil(totalHits / perPage) : countPage);
+				setStatusComponent('resolved');
 			})
-				.then(({ hits, totalHits }) => {
-					const foundImages = [];
-					console.log('RUN', hits);
-					hits.forEach(({ id, webformatURL, largeImageURL, tags }) => {
-						if (id && webformatURL && largeImageURL && tags) {
-							foundImages.push({ id, webformatURL, largeImageURL, tags });
-						}
-					});
-					const pages = isNewSearch ? Math.ceil(totalHits / perPage) : countPage;
-					this.setState(prevState => ({
-						foundImages: isNewSearch
-							? [...foundImages]
-							: [...prevState.foundImages, ...foundImages],
-						countFoundItem: totalHits,
-						countPage: pages,
-						statusComponent: 'resolved',
-					}));
-				})
-				.catch(({ message }) => {
-					this.setState({
-						statusComponent: 'rejected',
-						error: message,
-					});
-					Notify.failure('Unable to load results. ' + message);
-				})
-				.finally(onSearchCompeted);
-		}
-	};
+			.catch(({ message }) => {
+				setStatusComponent('rejected');
+				setError(message);
+				Notify.failure('Unable to load results. ' + message);
+			})
+			.finally(onSearchCompeted);
 
-	changePage = pg => {
-		this.setState(prevState => {
-			if (0 < prevState.page && prevState.page <= this.state.countPage) {
-				return {
-					page: prevState.page + pg,
-				};
-			}
-			return null;
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [page]);
+
+	function scrollWindow() {
+		window.scrollBy({
+			top: 500,
+			behavior: 'smooth',
 		});
-	};
+	}
 
-	handleClick = ({ target }) => {
-		const bigImageSrc = target.dataset.largeurl;
-		this.props.onClickBigImage(bigImageSrc);
-	};
-
-	render() {
-		const { page, countPage, searchItem, statusComponent, foundImages, error } = this.state;
-		if (statusComponent !== 'rejected') {
-			return (
-				<>
-					<ul className='gallery-container'>
-						{foundImages.length > 0
-							? foundImages.map(item => (
-									<ImageItem
-										key={item.id}
-										srcUrl={item.webformatURL}
-										dataset={item.largeImageURL}
-										tags={item.tags}
-										onClick={this.handleClick}
-									/>
-							  ))
-							: searchItem !== '' &&
-							  foundImages.length === 0 &&
-							  statusComponent === 'resolved' && (
-									<ErrorComponent>
-										Images <span className='search-item'>{searchItem}</span> not
-										found
-									</ErrorComponent>
-							  )}
-					</ul>
-					{page > 0 && countPage > 0 && foundImages.length > 0 && (
-						<div className='status-container'>
-							<div className='page-stat'>
-								<div className='page-count'>images: {foundImages.length}</div>
-							</div>
-							{countPage > page && (
-								<Button
-									className={'loadmore'}
-									type={'button'}
-									onClick={() => this.changePage(1)}
-								>
-									<BsFillCaretDownSquareFill />
-								</Button>
-							)}
+	if (statusComponent !== 'rejected') {
+		return (
+			<>
+				<ul className='gallery-container'>
+					{foundImages.length > 0
+						? foundImages.map(item => (
+								<ImageItem
+									key={item.id}
+									srcUrl={item.webformatURL}
+									dataset={item.largeImageURL}
+									tags={item.tags}
+									onClick={({ target }) =>
+										onClickBigImage(target.dataset.largeurl)
+									}
+								/>
+						  ))
+						: searchItem !== '' &&
+						  foundImages.length === 0 &&
+						  statusComponent === 'resolved' && (
+								<ErrorComponent>
+									Images <span className='search-item'>{searchItem}</span> not
+									found
+								</ErrorComponent>
+						  )}
+				</ul>
+				{page > 0 && countPage > 0 && foundImages.length > 0 && (
+					<div className='status-container'>
+						<div className='page-stat'>
+							<div className='page-count'>Total images: {countFoundItem}</div>
 						</div>
-					)}
-					{statusComponent === 'pending' ? <Loader /> : null};
-				</>
-			);
-		}
+						<div className='page-stat'>
+							<div className='page-count'>View images: {foundImages.length}</div>
+						</div>
+						{countPage > page && (
+							<Button
+								className={'loadmore'}
+								type={'button'}
+								onClick={() => {
+									if (page < perPage) {
+										setPage(page => page + 1);
+									} else Notify.info('Last page');
+								}}
+							>
+								<BsFillCaretDownSquareFill />
+							</Button>
+						)}
+					</div>
+				)}
+				{statusComponent === 'pending' ? <Loader /> : null};
+			</>
+		);
+	}
 
-		if (statusComponent === 'rejected') {
-			return <ErrorComponent className={'error'}>{error}</ErrorComponent>;
-		}
+	if (statusComponent === 'rejected') {
+		return <ErrorComponent className={'error'}>{error}</ErrorComponent>;
 	}
 }
+
+ImageGallery.propTypes = {
+	searchItem: PropTypes.string.isRequired,
+	isNewSearch: PropTypes.bool.isRequired,
+	onClickBigImage: PropTypes.func.isRequired,
+	onSearchCompeted: PropTypes.func.isRequired,
+};
 
 export default ImageGallery;
