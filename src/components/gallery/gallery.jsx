@@ -29,17 +29,14 @@ function ImageGallery({ searchItem, isNewSearch, onClickBigImage, onSearchCompet
 		setCountFoundItem(0);
 		setCountPage(0);
 		setError(null);
-
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [isNewSearch]);
+	}, [isNewSearch, searchItem]);
 
 	useEffect(() => {
 		if (page === 1) {
 			return;
 		}
 		scrollWindow();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [foundImages]);
+	}, [foundImages, page]);
 
 	useEffect(() => {
 		if (isNewSearch) {
