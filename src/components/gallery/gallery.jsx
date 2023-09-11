@@ -62,8 +62,10 @@ function ImageGallery({ searchItem, isNewSearch, onClickBigImage, onSearchCompet
 				});
 
 				setFoundImages(isNewSearch ? [...images] : [...foundImages, ...images]);
-				setCountFoundItem(totalHits);
-				setCountPage(isNewSearch ? Math.ceil(totalHits / perPage) : countPage);
+				if (page === 1) {
+					setCountFoundItem(totalHits);
+					setCountPage(isNewSearch ? Math.ceil(totalHits / perPage) : countPage);
+				}
 				setStatusComponent('resolved');
 			})
 			.catch(({ message }) => {
