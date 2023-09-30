@@ -1,15 +1,14 @@
 /** @format */
 
 import { useEffect, useState } from 'react';
-import { BsFillCaretDownSquareFill } from 'react-icons/bs';
 import { Notify } from 'notiflix';
 import { nanoid } from 'nanoid';
 import { fetchImage } from './service/fetch_api';
 import Searchbar from './searchbar';
 import Gallery from './gallery';
 import Modal from './modal';
-import Button from './button';
 import Loader from './loader';
+import Pagination from './pagination';
 import ErrorComponent from './service/error';
 
 import './style.css';
@@ -54,7 +53,6 @@ function App() {
 				});
 
 				setFoundImages([...foundImages, ...images]);
-				console.log(images);
 				if (page === 1) {
 					setCountPage(Math.ceil(totalHits / perPage));
 				}
@@ -94,6 +92,12 @@ function App() {
 		setIsModalShow(false);
 	};
 
+	const onClickChangePage = () => {
+		if (page < perPage) {
+			setPage(page => page + 1);
+		} else Notify.info('Last page');
+	};
+
 	return (
 		<div className='container'>
 			{isModalShow && (
@@ -110,30 +114,12 @@ function App() {
 					{foundImages.length > 0 ? (
 						<>
 							<Gallery images={foundImages} onClick={handleClick} />
-							<div className='status-container'>
-								{page > 0 && countPage > 0 && (
-									<div className='status-container'>
-										<div className='page-stat'>
-											<div className='page-count'>
-												View images: {foundImages.length}
-											</div>
-										</div>
-										{countPage > 1 && (
-											<Button
-												className={'loadmore'}
-												type={'button'}
-												onClick={() => {
-													if (page < perPage) {
-														setPage(page => page + 1);
-													} else Notify.info('Last page');
-												}}
-											>
-												<BsFillCaretDownSquareFill />
-											</Button>
-										)}
-									</div>
-								)}
-							</div>
+							<Pagination
+								page={page}
+								countPage={countPage}
+								foundImages={foundImages}
+								onClickChangePage={onClickChangePage}
+							/>
 						</>
 					) : (
 						statusComponent === 'resolved' &&
